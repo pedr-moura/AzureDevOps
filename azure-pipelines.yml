@@ -1,7 +1,6 @@
-# HTML
-# Archive your static HTML project and save it with the build record.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# HTML CI/CD Pipeline
+# Archive, test, and deploy a static HTML project
+# Reference: https://aka.ms/yaml
 
 trigger:
 - main
@@ -10,8 +9,55 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
+# Step 1: Install Node.js (for tools like linters or test runners)
+- task: NodeTool@0
+  inputs:
+    versionSpec: '16.x' # Specify the Node.js version (adjust as needed)
+  displayName: 'Install Node.js'
+
+# Step 2: Install project dependencies (if using npm for tools)
+- script: |
+    npm install
+  displayName: 'Install dependencies'
+
+# Step 3: Run tests (e.g., HTML linting or JavaScript unit tests)
+- script: |
+    npm run test
+  displayName: 'Run tests'
+  condition: succeeded()
+
+# Step 4: Build the project (if you have a build step, e.g., minification)
+- script: |
+    npm run build
+  displayName: 'Build project'
+  condition: succeeded()
+
+# Step 5: Archive the build output
 - task: ArchiveFiles@2
   inputs:
-    rootFolderOrFile: '$(build.sourcesDirectory)'
+    rootFolderOrFile: '$(build.sourcesDirectory)/dist' # Adjust to your build output folder
     includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    replaceExistingArchive: true
+  displayName: 'Archive files'
+  condition: succeeded()
+
+# Step 6: Publish build artifacts
 - task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)'
+    artifactName: 'html-site'
+    publishLocation: 'Container'
+  displayName: 'Publish artifacts'
+  condition: succeeded()
+
+# Step 7: Deploy to Azure Static Web Apps (example)
+- task: AzureStaticWebApp@0
+  inputs:
+    app_location: '/dist' # Adjust to your build output folder
+    api_location: '' # Optional: Specify API folder if applicable
+    output_location: '' # Optional: Specify output folder if different
+    azure_static_web_apps_api_token: $(SWA_TOKEN) # Store token in pipeline variables
+  displayName: 'Deploy to Azure Static Web Apps'
+  condition: succeeded()
